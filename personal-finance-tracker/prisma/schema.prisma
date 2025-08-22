@@ -3,10 +3,171 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String        @id @default(cuid())
+  email         String        @unique
+  passwordHash  String
+  locale        String
+  baseCurrency  String
+  tz            String
+  accounts      Account[]
+  categories    Category[]
+  budgets       Budget[]
+  rules         Rule[]
+  recurring     RecurringSeries[]
+  notifications Notification[]
+  transactions  Transaction[]
+  imports       Import[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model Account {
+  id         String        @id @default(cuid())
+  userId     String
+  user       User          @relation(fields: [userId], references: [id])
+  name       String
+  type       String
+  currency   String
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  transactions Transaction[]
+
+  @@index([userId])
+}
+
+model Category {
+  id        String     @id @default(cuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id])
+  parentId  String?
+  parent    Category?  @relation("CategoryToParent", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryToParent")
+  name      String
+  color     String
+  active    Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  transactions Transaction[]
+  budgets      Budget[]
+  splits       TransactionSplit[]
+
+  @@index([userId])
+  @@index([parentId])
+}
+
+model Transaction {
+  id             String           @id @default(cuid())
+  userId         String
+  user           User             @relation(fields: [userId], references: [id])
+  accountId      String
+  account        Account          @relation(fields: [accountId], references: [id])
+  date           DateTime
+  payee          String
+  memo           String?
+  amountMinor    Int
+  currency       String
+  categoryId     String?
+  category       Category?        @relation(fields: [categoryId], references: [id])
+  isSplit        Boolean          @default(false)
+  parentId       String?
+  parent         Transaction?     @relation("TransactionToParent", fields: [parentId], references: [id])
+  children       Transaction[]    @relation("TransactionToParent")
+  splits         TransactionSplit[]
+  importBatchId  String?
+  importBatch    Import?          @relation(fields: [importBatchId], references: [id])
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([userId])
+  @@index([accountId])
+  @@index([date])
+  @@index([categoryId])
+}
+
+model TransactionSplit {
+  id            String      @id @default(cuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+  categoryId    String?
+  category      Category?   @relation(fields: [categoryId], references: [id])
+  amountMinor   Int
+}
+
+model Budget {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  month           String   // format YYYY-MM
+  categoryId      String
+  category        Category @relation(fields: [categoryId], references: [id])
+  amountMinor     Int
+  rolloverEnabled Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, month, categoryId])
+}
+
+model Rule {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  name          String
+  conditionsJson Json
+  actionsJson   Json
+  priority      Int      @default(0)
+  enabled       Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@index([priority])
+}
+
+model RecurringSeries {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  name           String
+  cadence        String   // e.g. monthly, weekly, custom cron-like
+  nextDue        DateTime
+  amountMinor    Int
+  payeeSignature String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
+  @@index([nextDue])
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  type        String
+  payloadJson Json
+  status      String   // e.g., pending, sent, read
+  createdAt   DateTime @default(now())
+}
+
+model Import {
+  id         String        @id @default(cuid())
+  userId     String
+  user       User          @relation(fields: [userId], references: [id])
+  source     String        // csv, ofx, qif
+  status     String        // pending, completed, failed
+  statsJson  Json
+  createdAt  DateTime      @default(now())
+  transactions Transaction[]
+
+  @@index([userId])
 }
