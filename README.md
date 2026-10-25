@@ -1,3 +1,3 @@
 # Farjad M
  
-Cybersecurity student at the University of Technology Sydney.
+Cyber security analyst | SOC, ISO 27001, AWS security and DevSecOps | UTS Cyber Security graduate.
